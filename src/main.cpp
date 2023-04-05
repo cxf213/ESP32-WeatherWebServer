@@ -9,13 +9,22 @@
 #include <WiFiClient.h>
 #include <WebServer.h>
 #include <uri/UriBraces.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 #define WIFI_SSID "cxf"
 #define WIFI_PASSWORD "12345678"
 // Defining the WiFi channel speeds up the connection:
 #define WIFI_CHANNEL 6
 
+
 WebServer server(80);
+
+#define SCREEN_ADDRESS 0x3C 
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 const int LED1 = LED_BUILTIN;
 const int LED2 = 15;
@@ -57,10 +66,35 @@ void sendHtml() {
   server.send(200, "text/html", response);
 }
 
-void setup(void) {
+void displayText(String s){
+  display.clearDisplay();
+  display.setTextSize(1);         // set text size
+  display.setTextColor(WHITE);
+  display.setCursor(10,10);
+  display.print(s);
+  display.display();
+}
+
+void setup() {
   Serial.begin(115200);
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
+
+  //Wire.begin();
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    while (true);
+  }
+  Serial.println(F("SSD1306 allocation"));
+  delay(200);
+  display.clearDisplay(); // Clear the buffer
+  display.display(); // Display the buffer
+  display.setTextSize(1);         // set text size
+  display.setTextColor(WHITE);
+  display.setCursor(10,10);
+  display.print("Hello.");
+  display.display();
+
 
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD, WIFI_CHANNEL);
   Serial.print("Connecting to WiFi ");
@@ -70,11 +104,10 @@ void setup(void) {
     delay(100);
     Serial.print(".");
   }
-  Serial.println(" Connected!");
 
+  Serial.println(" Connected!");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
-
   server.on("/", sendHtml);
 
   server.on(UriBraces("/toggle/{}"), []() {
@@ -86,10 +119,12 @@ void setup(void) {
       case 1:
         led1State = !led1State;
         digitalWrite(LED1, led1State);
+        displayText("LED 1 TOGGLE");
         break;
       case 2:
         led2State = !led2State;
         digitalWrite(LED2, led2State);
+        displayText("LED 2 TOGGLE");
         break;
     }
 
@@ -116,8 +151,15 @@ void setup(void) {
 //   digitalWrite(LED_BUILTIN, LOW);
 //   delay(100);
 // }
-
-void loop(void) {
+int in = 0;
+void loop() {
+  // display.clearDisplay();
+  // display.setTextSize(1);         // set text size
+  // display.setTextColor(WHITE);
+  // display.setCursor(10,10);
+  // display.print(in);
+  // display.display();
   server.handleClient();
-  delay(2);
+  // in++;
+  delay(100);
 }
