@@ -51,17 +51,12 @@ void setup() {
   Serial.begin(115200);
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
-  //pinMode(GPIO_NUM_1, INPUT);
 
   // 显示初始化
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    while (true);
-  }
-  Serial.println(F("SSD1306 allocation"));
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {Serial.println(F("SSD1306 failed"));return;}
   delay(200);
-  display.clearDisplay(); // Clear the buffer
-  display.display(); // Display the buffer
+  display.clearDisplay(); 
+  display.display(); 
   putText("Hello!",30,22,2);
   display.display();
 
