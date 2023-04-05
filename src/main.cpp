@@ -12,6 +12,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include "SPIFFS.h"
 
 #define WIFI_SSID "cxf"
 #define WIFI_PASSWORD "12345678"
@@ -66,15 +67,6 @@ void sendHtml() {
   server.send(200, "text/html", response);
 }
 
-void displayText(String s){
-  display.clearDisplay();
-  display.setTextSize(1);         // set text size
-  display.setTextColor(WHITE);
-  display.setCursor(10,10);
-  display.print(s);
-  display.display();
-}
-
 void setup() {
   Serial.begin(115200);
   pinMode(LED1, OUTPUT);
@@ -106,8 +98,10 @@ void setup() {
   }
 
   Serial.println(" Connected!");
+
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+
   server.on("/", sendHtml);
 
   server.on(UriBraces("/toggle/{}"), []() {
@@ -119,12 +113,10 @@ void setup() {
       case 1:
         led1State = !led1State;
         digitalWrite(LED1, led1State);
-        displayText("LED 1 TOGGLE");
         break;
       case 2:
         led2State = !led2State;
         digitalWrite(LED2, led2State);
-        displayText("LED 2 TOGGLE");
         break;
     }
 
@@ -133,6 +125,21 @@ void setup() {
 
   server.begin();
   Serial.println("HTTP server started (http://localhost:80)");
+  if(!SPIFFS.begin(true)){
+    Serial.println("An Error has occurred while mounting SPIFFS");
+    return;
+  }
+  File file = SPIFFS.open("/test.txt");
+  if(!file){
+    Serial.println("Failed to open file!");
+    return;
+  }
+  
+  Serial.println("Content of file:");
+  while(file.available()){
+    Serial.write(file.read());
+  }
+  file.close();
 }
 
 
@@ -153,13 +160,14 @@ void setup() {
 // }
 int in = 0;
 void loop() {
-  // display.clearDisplay();
-  // display.setTextSize(1);         // set text size
-  // display.setTextColor(WHITE);
-  // display.setCursor(10,10);
-  // display.print(in);
-  // display.display();
+  display.clearDisplay();
+
+  display.setTextSize(1);         // set text size
+  display.setTextColor(WHITE);
+  display.setCursor(10,10);
+  display.print("Hello."+in);
+  display.display();
   server.handleClient();
-  // in++;
+  //in++;
   delay(100);
 }
