@@ -12,26 +12,30 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include "ClosedCube_HDC1080.h"
+#include <Adafruit_BMP085.h>
 #include "SPIFFS.h"
 
 #define WIFI_SSID "cxf"
 #define WIFI_PASSWORD "12345678"
-// Defining the WiFi channel speeds up the connection:
 #define WIFI_CHANNEL 6
-
-
+IPAddress localIP(192, 168, 137, 10); // hardcoded
+IPAddress localGateway(192, 168, 137, 1); //hardcoded
+IPAddress subnet(255, 255, 0, 0);
 WebServer server(80);
 
 #define SCREEN_ADDRESS 0x3C 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+ClosedCube_HDC1080 hdc1080;
+Adafruit_BMP085 bmp;
 
 const int LED1 = LED_BUILTIN;
 const int LED2 = 15;
-
 bool led1State = false;
 bool led2State = false;
+
 String HTMLstr;
 void sendHtml() {
   String response = String(HTMLstr);
@@ -61,6 +65,7 @@ void setup() {
   display.display();
 
   //WIFI初始化
+  WiFi.config(localIP, localGateway, subnet);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD, WIFI_CHANNEL);
   Serial.print("Connecting to WiFi ");
   Serial.print(WIFI_SSID);
@@ -82,6 +87,10 @@ void setup() {
     HTMLstr.concat(char(file.read()));
   }
   file.close();
+
+  //传感器初始化
+  hdc1080.begin(0x40);
+  bmp.begin();
 
   //WebSever初始化
   server.on("/", sendHtml);
@@ -114,5 +123,21 @@ void setup() {
 int in = 0;
 void loop() {
   server.handleClient();
-  delay(100);
+  delay(200);
+  double temperature = hdc1080.readTemperature();
+  double huimidity   = hdc1080.readHumidity();
+  int    pressure    = bmp.readPressure();
+  double altitude    = bmp.readAltitude(101500);
+
+  display.clearDisplay();
+  putText("Temperature: ",2,2,1);
+  putText("Huimidity: ",2,36,1);
+  putText("C",95,15,2);
+  putText("%",95,50,2);
+  display.setTextSize(2);
+  display.setCursor(28,15);
+  display.println(temperature);
+  display.setCursor(28,50);
+  display.println(huimidity);
+  display.display();
 }
