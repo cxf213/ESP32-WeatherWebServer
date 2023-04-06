@@ -14,27 +14,29 @@
 #include "ClosedCube_HDC1080.h"
 #include <Adafruit_BMP085.h>
 #include "SPIFFSTool/SPIFFSTool.h"
+#define DEVELOP
 
-//WebServer 配置
+// WebServer 配置
 AsyncWebServer server(80);
-const char* PARAM_INPUT_1 = "ssid";
-const char* PARAM_INPUT_2 = "pass";
-const char* PARAM_INPUT_3 = "ip";
-const char* PARAM_INPUT_4 = "gateway";
+const char *PARAM_INPUT_1 = "ssid";
+const char *PARAM_INPUT_2 = "pass";
+const char *PARAM_INPUT_3 = "ip";
+const char *PARAM_INPUT_4 = "gateway";
 String ssid;
 String pass;
 String ip;
 String gateway;
-const char* ssidPath = "/ssid.txt";
-const char* passPath = "/pass.txt";
-const char* ipPath = "/ip.txt";
-const char* gatewayPath = "/gateway.txt";
+const char *ssidPath = "/ssid.txt";
+const char *passPath = "/pass.txt";
+const char *ipPath = "/ip.txt";
+const char *gatewayPath = "/gateway.txt";
 IPAddress localIP;
 IPAddress localGateway;
 IPAddress subnet(255, 255, 0, 0);
 unsigned long previousMillis = 0;
-const long interval = 10000; 
-
+const long interval = 10000;
+bool haveConnected = false;
+bool haveReconnect = false;
 
 #define SCREEN_ADDRESS 0x3C
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -48,11 +50,13 @@ String led1State;
 double temperature;
 double huimidity;
 int pressure;
-double altitude;
+String Weatherdata = "NO DATA";
 
 // Initialize WiFi
-bool initWiFi() {
-  if(ssid=="" || ip==""){
+bool initWiFi()
+{
+  if (ssid == "" || ip == "")
+  {
     Serial.println("Undefined SSID or IP address.");
     return false;
   }
@@ -61,8 +65,8 @@ bool initWiFi() {
   localIP.fromString(ip.c_str());
   localGateway.fromString(gateway.c_str());
 
-
-  if (!WiFi.config(localIP, localGateway, subnet)){
+  if (!WiFi.config(localIP, localGateway, subnet))
+  {
     Serial.println("STA Failed to configure");
     return false;
   }
@@ -72,9 +76,11 @@ bool initWiFi() {
   unsigned long currentMillis = millis();
   previousMillis = currentMillis;
 
-  while(WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     currentMillis = millis();
-    if (currentMillis - previousMillis >= interval) {
+    if (currentMillis - previousMillis >= interval)
+    {
       Serial.println("Failed to connect.");
       return false;
     }
@@ -82,6 +88,29 @@ bool initWiFi() {
 
   Serial.println(WiFi.localIP());
   return true;
+}
+
+String processor(const String &var)
+{
+  if (var == "STATE")
+  {
+    if (digitalRead(LED1))
+    {
+      led1State = "ON";
+    }
+    else
+    {
+      led1State = "OFF";
+    }
+    return led1State;
+  }
+  // if(var == "WeatherData") {
+  //   return "{\"temperature\" : " +String(temperature)+
+  //               ", \"huimidity\" : "+String(huimidity)+
+  //               ", \"pressure\" : "+String(pressure)+
+  //               "}";
+  // }
+  return String();
 }
 
 void putText(String s, int xpos = 10, int ypos = 10, int size = 1)
@@ -92,29 +121,24 @@ void putText(String s, int xpos = 10, int ypos = 10, int size = 1)
   display.print(s);
 }
 
-String processor(const String& var) {
-  if(var == "STATE") {
-    if(digitalRead(LED1)) {
-      led1State = "ON";
-    }
-    else {
-      led1State = "OFF";
-    }
-    return led1State;
-  }
-  return String();
-}
-
 void setup()
 {
   Serial.begin(115200);
   pinMode(LED1, OUTPUT);
+  pinMode(15, OUTPUT);
 
   initSPIFFS();
+#if defined(DEVELOP)
+  ssid = "cxf";
+  pass = "12345678";
+  ip = "192.168.137.10";
+  gateway = "192.168.137.1";
+#else
   ssid = readFile(SPIFFS, ssidPath);
   pass = readFile(SPIFFS, passPath);
   ip = readFile(SPIFFS, ipPath);
-  gateway = readFile (SPIFFS, gatewayPath);
+  gateway = readFile(SPIFFS, gatewayPath);
+#endif
 
   // 显示初始化
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
@@ -132,27 +156,32 @@ void setup()
   hdc1080.begin(0x40);
   bmp.begin();
 
-  if(initWiFi()) {
+  if (initWiFi())
+  {
+    haveConnected = true;
     // Route for root / web page
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-      request->send(SPIFFS, "/index.html", "text/html", false, processor);
-    });
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/index.html", "text/html", false, processor); });
     server.serveStatic("/", SPIFFS, "/");
-    
+
     // Route to set GPIO state to HIGH
-    server.on("/on", HTTP_GET, [](AsyncWebServerRequest *request) {
+    server.on("/on", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
       digitalWrite(LED1, HIGH);
-      request->send(SPIFFS, "/index.html", "text/html", false, processor);
-    });
+      request->send(SPIFFS, "/index.html", "text/html", false, processor); });
 
     // Route to set GPIO state to LOW
-    server.on("/off", HTTP_GET, [](AsyncWebServerRequest *request) {
+    server.on("/off", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
       digitalWrite(LED1, LOW);
-      request->send(SPIFFS, "/index.html", "text/html", false, processor);
-    });
+      request->send(SPIFFS, "/index.html", "text/html", false, processor); });
+    server.on("/sensor", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(200, "text/plane", Weatherdata); 
+              Serial.println(Weatherdata);});
     server.begin();
   }
-  else {
+  else
+  {
     // Connect to Wi-Fi network with SSID and password
     Serial.println("Setting AP (Access Point)");
     // NULL sets an open Access Point
@@ -160,16 +189,16 @@ void setup()
 
     IPAddress IP = WiFi.softAPIP();
     Serial.print("AP IP address: ");
-    Serial.println(IP); 
+    Serial.println(IP);
 
     // Web Server Root URL
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-      request->send(SPIFFS, "/wifimanager.html", "text/html");
-    });
-    
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/wifimanager.html", "text/html"); });
+
     server.serveStatic("/", SPIFFS, "/");
-    
-    server.on("/", HTTP_POST, [](AsyncWebServerRequest *request) {
+
+    server.on("/", HTTP_POST, [](AsyncWebServerRequest *request)
+              {
       int params = request->params();
       for(int i=0;i<params;i++){
         AsyncWebParameter* p = request->getParam(i);
@@ -211,13 +240,13 @@ void setup()
       }
       request->send(200, "text/plain", "Done. ESP will restart, connect to your router and go to IP address: " + ip);
       delay(3000);
-      ESP.restart();
-    });
+      ESP.restart(); });
     server.begin();
   }
-
+  Serial.println(F("Server Start."));
 }
-int in = 0;
+
+unsigned int overtimecount = 0;
 void loop()
 {
   delay(100);
@@ -225,6 +254,7 @@ void loop()
   huimidity = hdc1080.readHumidity();
   pressure = bmp.readPressure();
 
+  Weatherdata="{\"temperature\" : " + String(temperature) + ", \"huimidity\" : " + String(huimidity) + ", \"pressure\" : " + String(pressure) + "}";
   display.clearDisplay();
   putText("Temperature: ", 2, 2, 1);
   putText("Huimidity: ", 2, 36, 1);
@@ -236,4 +266,20 @@ void loop()
   display.setCursor(28, 50);
   display.println(huimidity);
   display.display();
+
+  if(haveReconnect) overtimecount++; else overtimecount = 0;
+  if(overtimecount>50){haveReconnect = false;overtimecount = 0;};
+  if ((WiFi.status() != WL_CONNECTED) && haveConnected && !haveReconnect) {
+    digitalWrite(15, HIGH);
+    Serial.print(millis());
+    Serial.println("Reconnecting to WIFI network");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    haveReconnect = true;
+  }else if((WiFi.status() == WL_CONNECTED) && haveConnected && haveReconnect){
+    digitalWrite(15, LOW);
+    haveReconnect = false;
+    Serial.print(millis());
+    Serial.println("Reconnected");
+  }
 }

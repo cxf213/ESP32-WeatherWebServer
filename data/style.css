@@ -85,6 +85,10 @@ label {
   font-size: 1.2rem;
   color: #1282A2;
 }
+.WeatherData {
+  font-size: 1.2rem;
+  color: #24bdd1;
+}
 button {
   border: none;
   color: #FEFCFB;
