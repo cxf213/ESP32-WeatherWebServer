@@ -94,11 +94,19 @@ bool initWiFi()
   return true;
 }
 
-String outputState(int output){
-  if (digitalRead(output)) return "checked"; else return "";
+String outputState(int output)
+{
+  if (digitalRead(output))
+    return "checked";
+  else
+    return "";
 }
-String screenStateChanger(){
-  if(screenState) return "checked"; else return "";
+String screenStateChanger()
+{
+  if (screenState)
+    return "checked";
+  else
+    return "";
 }
 
 String processor(const String &var)
@@ -194,7 +202,7 @@ void setup()
       Serial.println(inputMessage2);
       request->send(200, "text/plain", "OK"); });
 
-    //提供屏幕按钮数据
+    // 提供屏幕按钮数据
     server.on("/stateLED", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(200, "text/plain", String(screenState ? 1 : 0).c_str()); });
     server.begin();
@@ -300,34 +308,38 @@ void loop()
       display.clearDisplay();
     }
     display.display();
-    if (haveReconnect)
-      overtimecount++;
-    else
-      overtimecount = 0;
-    if (overtimecount > 50)
+
+    if (haveConnected)
     {
-      haveReconnect = false;
-      overtimecount = 0;
-    };
-    if ((WiFi.status() != WL_CONNECTED) && haveConnected && !haveReconnect)
-    {
-      digitalWrite(GPIO_NOWIFI_LED, HIGH);
-      Serial.print(millis());
-      Serial.println("Reconnecting to WIFI network");
-      WiFi.disconnect();
-      WiFi.reconnect();
-      haveReconnect = true;
-    }
-    else if ((WiFi.status() == WL_CONNECTED) && haveConnected && haveReconnect)
-    {
-      digitalWrite(GPIO_NOWIFI_LED, LOW);
-      haveReconnect = false;
-      Serial.print(millis());
-      Serial.println("Reconnected");
+      if (haveReconnect)
+        overtimecount++;
+      else
+        overtimecount = 0;
+      if (overtimecount > 50)
+      {
+        haveReconnect = false;
+        overtimecount = 0;
+      };
+      if ((WiFi.status() != WL_CONNECTED) && !haveReconnect)
+      {
+        digitalWrite(GPIO_NOWIFI_LED, HIGH);
+        Serial.print(millis());
+        Serial.println("Reconnecting to WIFI network");
+        WiFi.disconnect();
+        WiFi.reconnect();
+        haveReconnect = true;
+      }
+      else if ((WiFi.status() == WL_CONNECTED) && haveReconnect)
+      {
+        digitalWrite(GPIO_NOWIFI_LED, LOW);
+        haveReconnect = false;
+        Serial.print(millis());
+        Serial.println("Reconnected");
+      }
     }
   }
 
-  #pragma region ButtonProcess
+#pragma region ButtonProcess
   int reading = digitalRead(GPIO_BUTTON);
   if (reading != lastButtonState)
   {
@@ -345,5 +357,5 @@ void loop()
     }
   }
   lastButtonState = reading;
-  #pragma endregion
+#pragma endregion
 }
